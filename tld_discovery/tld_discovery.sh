@@ -31,7 +31,7 @@ eval set -- "$PARSED"
 
 # default options
 verbose=false
-tldFile=/dev/stdin
+tldFile=unset
 outFile=/dev/stdout
 
 # now enjoy the options in order and nicely split until we see --
@@ -47,6 +47,7 @@ while true; do
             ;;
         -t|--tld)
             tldFile="$2"
+            [[ tldFile == "-" ]] && tldFile=/dev/stdin
             shift 2
             ;;
         -o|--output)
@@ -74,6 +75,12 @@ basename=$1
 # tldFile is the second (optional) positional arguement
 if [[ $# -ge 2 ]]; then
     tldFile=$2
+fi
+
+# check that tldFile is set
+if [[ $tldFile == "unset" ]]; then
+    echo "Missing TLD wordlist. Set using -t option."
+    exit 5
 fi
 
 #################################################
