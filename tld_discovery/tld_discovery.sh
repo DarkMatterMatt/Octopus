@@ -87,6 +87,9 @@ fi
 
 PARKED_CHECK="checking_if_wildcard_parked"
 
+# make output file directory
+mkdir -p "${outFile%/*}"
+
 while read ext; do
     # url to test
     hostname="$basename.$ext"
