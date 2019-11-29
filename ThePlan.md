@@ -2,7 +2,7 @@
 
 ## TLD Discovery
 Output: one file, one domain per line
-- **getent** `getent hosts example.com`
+- **host** `host example.com`
 
 ## Subdomain Discovery
 Output: one file, one subdomain per line
