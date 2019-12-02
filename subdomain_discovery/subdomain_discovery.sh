@@ -13,8 +13,8 @@ if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
     exit 1
 fi
 
-OPTIONS=D:o:O:vhw:
-LONGOPTS=domainsfile:,output:,outputdir:,verbose,help,wordlist
+OPTIONS=d:D:o:O:vhw:
+LONGOPTS=domain:,domainsfile:,output:,outputdir:,verbose,help,wordlist
 
 # -regarding ! and PIPESTATUS see above
 # -temporarily store output to be able to check for errors
@@ -92,12 +92,6 @@ if [[ $domainsFile == "unset" ]] && [[ $domain == "unset" ]]; then
     exit 4
 fi
 
-# check that wordlist is set
-if [[ $wordlist == "unset" ]]; then
-    echo "Missing wordlist. Set using -w option."
-    exit 5
-fi
-
 #################################################
 
 process_domain () {
@@ -106,17 +100,24 @@ process_domain () {
     mkdir -p $dir
 
     # amass
-    amass enum -passive -d $domain -o "$dir/amass.txt"
+    if [[ $domainsFile != "unset" ]]; then
+        amass enum -passive -d $domain -o "$dir/amass.txt" -brute -w $wordlist
+    else
+        amass enum -passive -d $domain -o "$dir/amass.txt"
+    fi
 
     # subfinder
-    subfinder -d $domain -w $wordlist -o "$dir/subfinder.tmp"
+    subfinder -d $domain -o "$dir/subfinder.tmp"
     grep -E '^([A-Za-z0-9-]+\.?)+$' "$dir/subfinder.tmp" > "$dir/subfinder.txt"
     rm "$dir/subfinder.tmp"
 
     # fierce (Python3 version)
     #fierce --domain $domain --subdomain-file $wordlist | tee "$dir/fierce.txt"
 
-    # assetfinder
+    # fierce (Perl version)
+    #fierce -dns $domain -wordlist $wordlist -file "$dir/fierce.txt"
+
+    # assetfinder (amass finds everything assetfinder does + more)
     #assetfinder --subs-only $domain | tee "$dir/assetfinder.txt"
 
     # merge and sort
