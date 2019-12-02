@@ -14,7 +14,7 @@ if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
 fi
 
 OPTIONS=d:D:o:O:vhw:
-LONGOPTS=domain:,domainsfile:,output:,outputdir:,verbose,help,wordlist
+LONGOPTS=domain:,domainsfile:,output:,outputdir:,verbose,help,wordlist:
 
 # -regarding ! and PIPESTATUS see above
 # -temporarily store output to be able to check for errors
@@ -41,7 +41,7 @@ outDir=./working
 while true; do
     case "$1" in
         -h|--help)
-            echo "Usage: $0 -w wordlist.txt domain"
+            echo "Usage: $0 domainsFile"
             exit 0
             ;;
         -v|--verbose)
