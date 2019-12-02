@@ -33,7 +33,7 @@ eval set -- "$PARSED"
 verbose=false
 domain=unset
 domainsFile=unset
-outDir=./working
+outDir=./working/port_scanning
 
 # now enjoy the options in order and nicely split until we see --
 while true; do
@@ -85,6 +85,7 @@ fi
 
 process_domain () {
     local domain=$1
+    mkdir -p $outDir
 
     # nmap
     nmap -A -oA "$outDir/$domain" $domain
