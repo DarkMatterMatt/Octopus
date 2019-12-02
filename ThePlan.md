@@ -9,12 +9,17 @@ Output: one file, one subdomain per line
 - **amass** `amass enum -d example.com`
 - **subfinder** `subfinder -d example.com`
 - **fierce** `fierce -dns example.com`
+- **assetfinder** `assetfinder --subs-only example.com`
 
 ## Port Scanning
 Output: one file per subdomain
-- **nmap** `nmap example.com`
+- **nmap** `nmap -A -oA example.com`
 
 ### Web Servers
+
+#### Scanning
+Output: one file per subdomain:webport
+- **nikto** `nikto -host example.com -port 80`
 
 #### Directory Discovery
 Output: one file per subdomain:webport
