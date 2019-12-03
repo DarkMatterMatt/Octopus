@@ -13,7 +13,7 @@ Output: one file, one subdomain per line
 
 ## Port Scanning
 Output: one file per subdomain
-- **nmap** `nmap -A -oA example.com`
+- **nmap** `nmap -A -oA outputDir example.com`
 
 ### Web Servers
 
