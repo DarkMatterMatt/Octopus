@@ -5,9 +5,6 @@
 # saner programming env: these switches turn some bugs into errors
 set -o errexit -o pipefail -o noclobber -o nounset
 
-# enable extended glob patterns (e.g. /dir/*.txt)
-shopt -s extglob
-
 # -allow a command to fail with !’s side effect on errexit
 # -use return value from ${PIPESTATUS[0]}, because ! hosed $?
 ! getopt --test > /dev/null 
@@ -124,7 +121,7 @@ process_domain () {
     #assetfinder --subs-only $domain | tee "$dir/assetfinder.txt"
 
     # merge and sort
-    cat "$dir/*.txt" | sort -u > "$dir.txt"
+    cat $dir/*.txt | sort -u > $dir.txt
 }
 
 # process domain
@@ -141,4 +138,4 @@ fi
 
 # merge into one file, one subdomain per line
 mkdir -p "${outFile%/*}"
-cat "$outDir/*.txt" > outFile
+cat $outDir/*.txt > outFile
