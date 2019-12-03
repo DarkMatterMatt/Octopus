@@ -14,18 +14,17 @@ Output: one file, one subdomain per line
 ## Port Scanning
 Output: one file per subdomain
 - **nmap** `nmap -A -oA outputDir example.com`
+- **masscan** `masscan -p 80,443 --banners example.com`
 
-### Web Servers
-
-#### Scanning
+## Web Scanning
 Output: one file per subdomain:webport
 - **nikto** `nikto -host example.com -port 80`
 
-#### Directory Discovery
+## Directory Discovery
 Output: one file per subdomain:webport
 - **gobuster** `gobuster dir -u example.com -w wordlist.txt`
 - **dirsearch** `python3 dirsearch.py -u example.com -w wordlist.txt -e extensions.txt`
 
-##### Screenshotting
-Output: one folder per subdomain:webport, one image per directory
+## Screenshotting
+Output: one folder per subdomain:webport
 - **aquatone** `cat targets.txt | aquatone`
