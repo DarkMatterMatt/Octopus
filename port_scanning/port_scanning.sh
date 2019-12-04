@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# options parsing template from https://stackoverflow.com/a/29754866
-
-# saner programming env: these switches turn some bugs into errors
-set -o errexit -o pipefail -o noclobber -o nounset
-
 # -allow a command to fail with !’s side effect on errexit
 # -use return value from ${PIPESTATUS[0]}, because ! hosed $?
 ! getopt --test > /dev/null 
@@ -13,8 +8,8 @@ if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
     exit 1
 fi
 
-OPTIONS=d:D:O:vhp:
-LONGOPTS=domain:,domainsfile:,outputdir:,verbose,help,ports
+OPTIONS=d:D:O:vhp:P:u:U:
+LONGOPTS=domain:,domainsfile:,outputdir:,verbose,help,ports:,portsfile:,udpports:,udpportsfile:,rate:,wait:
 
 # -regarding ! and PIPESTATUS see above
 # -temporarily store output to be able to check for errors
@@ -34,7 +29,12 @@ verbose=false
 domain=unset
 domainsFile=unset
 outDir=./working/port_scanning
-ports=80,81,300,443,591,593,832,981,1010,1311,2082,2087,2095,2096,2480,3000,3128,3333,4243,4567,4711,4712,4993,5000,5104,5108,5800,6543,7000,7396,7474,8000,8001,8008,8014,8042,8069,8080,8081,8088,8090,8091,8118,8123,8172,8222,8243,8280,8281,8333,8443,8500,8834,8880,8888,8983,9000,9043,9060,9080,9090,9091,9200,9443,9800,9981,12443,16080,18091,18092,20720,28017
+ports=unset
+portsFile=unset
+udpPorts=unset
+udpPortsFile=unset
+masscanRate=500
+masscanWait=3
 
 # now enjoy the options in order and nicely split until we see --
 while true; do
@@ -64,6 +64,26 @@ while true; do
             ports="$2"
             shift 2
             ;;
+        -P|--portsFile)
+            portsFile="$2"
+            shift 2
+            ;;
+        -u|--udpports)
+            udpPorts="$2"
+            shift 2
+            ;;
+        -U|--udpportsfile)
+            udpPortsFile="$2"
+            shift 2
+            ;;
+        --rate)
+            masscanRate="$2"
+            shift 2
+            ;;
+        --wait)
+            masscanWait="$2"
+            shift 2
+            ;;
         --)
             shift
             break
@@ -86,6 +106,22 @@ if [[ $domainsFile == "unset" ]] && [[ $domain == "unset" ]]; then
     exit 4
 fi
 
+# check that there are some ports to scan
+if [[ $ports == "unset" ]] && [[ $portsFile == "unset" ]] && [[ $udpPorts == "unset" ]] && [[ $udpPortsFile == "unset" ]]; then
+    echo "Missing ports to scan."
+    exit 5
+fi
+
+# load TCP ports from file
+if [[ $portsFile != "unset" ]]; then
+    ports=$(paste -s -d "," $portsFile)
+fi
+
+# load UDP ports from file
+if [[ $udpPortsFile != "unset" ]]; then
+    udpPorts=$(paste -s -d "," $udpPortsFile)
+fi
+
 #################################################
 
 process_domain () {
@@ -93,17 +129,32 @@ process_domain () {
     local dir="$outDir/$domain"
     mkdir -p $dir
 
-    ip=$(host $domain | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | head -n 1)
+    if [[ $domain =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        ip=$domain
+    else
+        ip=$(host $domain | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | head -n 1)
+        if [[ $ip == "" ]]; then
+            echo "Failed resolving $domain"
+            return
+        fi
+    fi
 
     # masscan
-    masscan $ip -p $ports --banners --source-port $masscanLocalPort -oG "$dir/masscan.txt" --wait 3
-    cat "$dir/masscan.txt" | grep http | grep -o "Port:[^0-9]*[0-9]*" | grep -o "[0-9]*"  | sed -e "s/^/http:\/\/$domain:/"  >> "$outDir/web_servers.txt"
-    cat "$dir/masscan.txt" | grep ssl  | grep -o "Port:[^0-9]*[0-9]*" | grep -o "[0-9]*"  | sed -e "s/^/https:\/\/$domain:/" >> "$outDir/web_servers.txt"
+    [[ $ports != "unset" ]] && masscanTcpPorts="-p $ports" || masscanTcpPorts=""
+    [[ $udpPorts != "unset" ]] && masscanUdpPorts="--udp-ports $udpPorts" || masscanUdpPorts=""
+
+    masscan $ip $masscanTcpPorts $masscanUdpPorts --banners --source-port $masscanLocalPort -oG "$dir/masscan.txt" --wait $masscanWait --rate $masscanRate
+    cat "$dir/masscan.txt" | grep http       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/http:\/\/$domain:/"  | tee -a "$outDir/web_servers.txt"
+    cat "$dir/masscan.txt" | grep ssl        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/https:\/\/$domain:/" | tee -a "$outDir/web_servers.txt"
+    cat "$dir/masscan.txt" | grep ftp        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/ftp_servers.txt"
+    cat "$dir/masscan.txt" | grep ssh        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/ssh_servers.txt"
+    cat "$dir/masscan.txt" | grep ' 23'$'\t' | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/telnet_servers.txt"
+    cat "$dir/masscan.txt" | grep smtp       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/smtp_servers.txt"
+    cat "$dir/masscan.txt" | grep ' 53'$'\t' | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/dns_servers.txt"
+    cat "$dir/masscan.txt" | grep imap       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/imap_servers.txt"
 
     # nmap
     #nmap -A -oA "$dir" $domain
-
-    # check if it is running a web server
     #cat "$dir.gnmap" | grep "http" | cut -f3 -d: | grep -o "[0-9]*" | sed -e "s/^/$domain:/" >> "$outDir/web_servers.txt"
 }
 
