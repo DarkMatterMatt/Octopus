@@ -124,39 +124,32 @@ fi
 
 #################################################
 
-process_domain () {
-    local domain=$1
-    local dir="$outDir/$domain"
-    mkdir -p $dir
+mkdir -p $outDir
 
+# make temporary directory
+tmpDir=$(mktemp -d 2>/dev/null || mktemp -d -t 'mytmpdir')
+# process single domain
+if [[ $domainsFile == "unset" ]]; then
+    echo $domain > "$tmpDir/domain"
+    domainsFile="$tmpDir/domain"
+fi
+
+# find ips for domains
+declare -A ips
+while read domain; do
+    # resolve hostname if it isn't already an IP
     if [[ $domain =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         ip=$domain
     else
-        ip=$(host $domain | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | head -n 1)
+        ip=$(host $domain | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | head -n 1)
         if [[ $ip == "" ]]; then
             echo "Failed resolving $domain"
-            return
         fi
     fi
 
-    # masscan
-    [[ $ports != "unset" ]] && masscanTcpPorts="-p $ports" || masscanTcpPorts=""
-    [[ $udpPorts != "unset" ]] && masscanUdpPorts="--udp-ports $udpPorts" || masscanUdpPorts=""
-
-    masscan $ip $masscanTcpPorts $masscanUdpPorts --banners --source-port $masscanLocalPort -oG "$dir/masscan.txt" --wait $masscanWait --rate $masscanRate
-    cat "$dir/masscan.txt" | grep http       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/http:\/\/$domain:/"  | tee -a "$outDir/web_servers.txt"
-    cat "$dir/masscan.txt" | grep ssl        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/https:\/\/$domain:/" | tee -a "$outDir/web_servers.txt"
-    cat "$dir/masscan.txt" | grep ftp        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/ftp_servers.txt"
-    cat "$dir/masscan.txt" | grep ssh        | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/ssh_servers.txt"
-    cat "$dir/masscan.txt" | grep ' 23'$'\t' | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/telnet_servers.txt"
-    cat "$dir/masscan.txt" | grep smtp       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/smtp_servers.txt"
-    cat "$dir/masscan.txt" | grep ' 53'$'\t' | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/dns_servers.txt"
-    cat "$dir/masscan.txt" | grep imap       | cut -f 2 | cut -f 2 -d ' ' | sed "s/^/$domain:/" | tee -a "$outDir/imap_servers.txt"
-
-    # nmap
-    #nmap -A -oA "$dir" $domain
-    #cat "$dir.gnmap" | grep "http" | cut -f3 -d: | grep -o "[0-9]*" | sed -e "s/^/$domain:/" >> "$outDir/web_servers.txt"
-}
+    ips[$ip]+="$domain " # space delimited domain names
+    echo $ip >> "$tmpDir/ips"
+done < $domainsFile
 
 # find an unused port for masscan
 highestLocalPort=$(cat /proc/sys/net/ipv4/ip_local_port_range | cut -d $'\t' -f 2)
@@ -165,17 +158,35 @@ masscanLocalPort=$((highestLocalPort + 1))
 # don't process masscan packets
 iptables -A INPUT -p tcp --dport $masscanLocalPort -j DROP
 
-# process domain
-if [[ $domain != "unset" ]]; then
-    process_domain $domain
-fi
-
-# process domains file
-if [[ $domainsFile != "unset" ]]; then
-    while read domain; do
-        process_domain $domain
-    done < $domainsFile
-fi
+# run masscan
+[[ $ports != "unset" ]] && masscanTcpPorts="-p $ports" || masscanTcpPorts=""
+[[ $udpPorts != "unset" ]] && masscanUdpPorts="--udp-ports $udpPorts" || masscanUdpPorts=""
+masscan -iL "$tmpDir/ips" $masscanTcpPorts $masscanUdpPorts --banners --source-port $masscanLocalPort -oG "$outDir/masscan.txt" --wait $masscanWait --rate $masscanRate
 
 # undo iptables changes
 iptables -D INPUT -p tcp --dport $masscanLocalPort -j DROP
+
+# process results
+while read line; do
+
+    ip=$(echo $line | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b') || continue
+    domains=${ips[$ip]}
+    port=$(echo $line | grep -oE 'Port: [0-9]+' | cut -d ' ' -f 2) || continue
+
+    proto=$(echo $line | grep -oE '\b(http|ssl|ftp|ssh|stmp|imap|23|53)\b') || continue
+    [[ $proto == "23" ]] && proto="telnet"
+    [[ $proto == "53" ]] && proto="dns"
+
+    # log to file
+    if [[ $proto == "http" ]] || [[ $proto == "ssl" ]]; then
+        for domain in $domains; do
+            echo "$domain:$port" >> "$outDir/$proto.txt"
+        done
+    else
+        echo "$ip:$port" >> "$outDir/$proto.txt"
+    fi
+
+done < "$outDir/masscan.txt"
+
+# delete temp directory
+rm -r $tmpDir
