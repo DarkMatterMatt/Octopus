@@ -128,6 +128,7 @@ mkdir -p $outDir
 
 # make temporary directory
 tmpDir=$(mktemp -d 2>/dev/null || mktemp -d -t 'mytmpdir')
+
 # process single domain
 if [[ $domainsFile == "unset" ]]; then
     echo $domain > "$tmpDir/domain"
@@ -178,13 +179,10 @@ while read line; do
     [[ $proto == "53" ]] && proto="dns"
 
     # log to file
-    if [[ $proto == "http" ]] || [[ $proto == "ssl" ]]; then
-        for domain in $domains; do
-            echo "$domain:$port" >> "$outDir/$proto.txt"
-        done
-    else
-        echo "$ip:$port" >> "$outDir/$proto.txt"
-    fi
+    for domain in $domains; do
+        echo "$domain:$port" >> "$outDir/$proto.txt"
+    done
+    echo "$ip:$port" >> "$outDir/$proto-ip.txt"
 
 done < "$outDir/masscan.txt"
 
