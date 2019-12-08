@@ -13,8 +13,8 @@ if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
     exit 1
 fi
 
-OPTIONS=D:O:vh
-LONGOPTS=domainsfile:,outputdir:,verbose,help
+OPTIONS=U:O:vh
+LONGOPTS=urlsfile:,outputdir:,verbose,help
 
 # -regarding ! and PIPESTATUS see above
 # -temporarily store output to be able to check for errors
@@ -32,7 +32,7 @@ eval set -- "$PARSED"
 # default options
 verbose=false
 urlsFile=unset
-outDir=./working/directory_discovery
+outDir=./working/screenshotting
 
 # now enjoy the options in order and nicely split until we see --
 while true; do
@@ -46,8 +46,8 @@ while true; do
             shift
             ;;
         -U|--urlsFile)
-            domainsFile="$2"
-            [[ domainsFile == "-" ]] && domainsFile=/dev/stdin
+            urlsFile="$2"
+            [[ urlsFile == "-" ]] && urlsFile=/dev/stdin
             shift 2
             ;;
         -O|--outputdir)
