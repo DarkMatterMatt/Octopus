@@ -59,7 +59,7 @@ while true; do
             break
             ;;
         *)
-            echo "Programming error"
+            echo "Programming error: uncaught processed arg: $1"
             exit 3
             ;;
     esac

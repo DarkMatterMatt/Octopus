@@ -64,7 +64,7 @@ while true; do
             ports="$2"
             shift 2
             ;;
-        -P|--portsFile)
+        -P|--portsfile)
             portsFile="$2"
             shift 2
             ;;
@@ -89,7 +89,7 @@ while true; do
             break
             ;;
         *)
-            echo "Programming error"
+            echo "Programming error: uncaught processed arg: $1"
             exit 3
             ;;
     esac

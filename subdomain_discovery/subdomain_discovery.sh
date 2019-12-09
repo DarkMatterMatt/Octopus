@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# options parsing template from https://stackoverflow.com/a/29754866
-
-# saner programming env: these switches turn some bugs into errors
-set -o errexit -o pipefail -o noclobber -o nounset
-
 # -allow a command to fail with !’s side effect on errexit
 # -use return value from ${PIPESTATUS[0]}, because ! hosed $?
 ! getopt --test > /dev/null 
@@ -75,7 +70,7 @@ while true; do
             break
             ;;
         *)
-            echo "Programming error"
+            echo "Programming error: uncaught processed arg: $1"
             exit 3
             ;;
     esac
@@ -100,7 +95,7 @@ process_domain () {
     mkdir -p $dir
 
     # amass
-    if [[ $domainsFile != "unset" ]]; then
+    if [[ $wordlist != "unset" ]]; then
         amass enum -passive -d $domain -o "$dir/amass.txt" -brute -w $wordlist
     else
         amass enum -passive -d $domain -o "$dir/amass.txt"
@@ -138,4 +133,4 @@ fi
 
 # merge into one file, one subdomain per line
 mkdir -p "${outFile%/*}"
-cat $outDir/*.txt > outFile
+cat $outDir/*.txt > $outFile
