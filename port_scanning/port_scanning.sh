@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o errexit
 
 # -allow a command to fail with !’s side effect on errexit
 # -use return value from ${PIPESTATUS[0]}, because ! hosed $?
